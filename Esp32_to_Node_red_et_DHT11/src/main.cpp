@@ -155,9 +155,6 @@ void loop()
       // Récupération de la réponse de Node-RED
       String etatLED = httpGET.getString();
 
-      // // Supprime espaces et retours à la ligne
-      // etatLED.trim();
-
       Serial.print("Etat LED recu : ");
       Serial.println(etatLED);
 
