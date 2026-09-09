@@ -10,7 +10,7 @@ const char *name_card_elec = "esp32_test_node_red_v2"; // Nom d'hôte de la cart
 #ifdef MON_TELEPHONE
 const char *ssid = "Me voici";      // SSID du réseau WiFi
 const char *password = "youssef13"; // Mot de passe du réseau WiFi
-String serverName = "http://192.168.238.129:1880/compteur";
+String serverName = "http://192.168.238.171:1880/compteur";
 #endif
 #ifdef MA_FREEBOX                                // Nom d'hôte de la carte ESP32
 const char *ssid = "Freebox-10E503";             // SSID du réseau WiFi
@@ -18,18 +18,9 @@ const char *password = "h2nn5qzkvfq639rfqv5s2v"; // Mot de passe du réseau WiFi
 String serverName = "http://192.168.1.110:1880/compteur";
 #endif
 
-#define LED_ROUGE 5
-#define LED_VERT 14
-#define LED_BLEU 15
 
 void setup()
 {
-  pinMode(LED_ROUGE, OUTPUT);
-  pinMode(LED_VERT, OUTPUT);
-  pinMode(LED_BLEU, OUTPUT);
-  digitalWrite(LED_VERT, LOW);
-  digitalWrite(LED_BLEU, LOW);
-  digitalWrite(LED_ROUGE, LOW);
 
   Serial.begin(115200);
   // Définit le nom d'hôte pour la carte ESP32 sur le réseau
@@ -64,7 +55,6 @@ void setup()
 
 void loop()
 {
-  while(1);
   static int compteur = 0;
   delay(1000);
   compteur++;
