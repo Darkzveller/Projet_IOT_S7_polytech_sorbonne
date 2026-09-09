@@ -45,7 +45,7 @@ void setup()
   WiFi.mode(WIFI_STA);
 
   // Démarre la connexion WiFi avec les identifiants donnés
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password); 
   Serial.println();
   Serial.print("SSID : ");
   Serial.println(ssid);

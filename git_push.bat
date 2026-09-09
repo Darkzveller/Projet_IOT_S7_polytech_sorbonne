@@ -1,2 +1,2 @@
 echo off
-git status && git add . && git commit -m "Node red + DHT 11 fonctionnel" && git push
+git status && git add . && git commit -m "Dashboard effectuer + exportation du node" && git push
