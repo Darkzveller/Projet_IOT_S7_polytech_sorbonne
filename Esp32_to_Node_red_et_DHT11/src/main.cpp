@@ -2,17 +2,20 @@
 #include "WiFi.h"
 #include <HTTPClient.h>
 #include "DHT.h"
+
+#define LED_PIN 2
+
 // Capteur de temperature et d'humidite DHT11
 // https://tutoduino.fr/
 // Copyleft 2020
 #include "DHT.h"
-// Definit la broche de l'Arduino sur laquelle la 
-// broche DATA du capteur est reliee 
+// Definit la broche de l'Arduino sur laquelle la
+// broche DATA du capteur est reliee
 #define DHTPIN 4
 // Definit le type de capteur utilise
 #define DHTTYPE DHT11
 // Declare un objet de type DHT
-// Il faut passer en parametre du constructeur 
+// Il faut passer en parametre du constructeur
 // de l'objet la broche et le type de capteur
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -24,20 +27,29 @@ const char *name_card_elec = "esp32_test_node_red_v2"; // Nom d'hôte de la cart
 #ifdef MON_TELEPHONE
 const char *ssid = "Me voici";      // SSID du réseau WiFi
 const char *password = "youssef13"; // Mot de passe du réseau WiFi
-String serverName = "http://192.168.238.171:1880/donnes";
+String serverPOST = "http://192.168.238.171:1880/donnes";
+String serverGET = "http://192.168.238.171:1880/button";
+
 #endif
 #ifdef MA_FREEBOX                                // Nom d'hôte de la carte ESP32
 const char *ssid = "Freebox-10E503";             // SSID du réseau WiFi
 const char *password = "h2nn5qzkvfq639rfqv5s2v"; // Mot de passe du réseau WiFi
-String serverName = "http://192.168.1.110:1880/donnes";
+String serverPOST = "http://192.168.1.110:1880/donnes";
 #endif
-
-
 
 void setup()
 {
   Serial.begin(9600);
   dht.begin();
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_PIN, LOW);
+  delay(1000);
+  digitalWrite(LED_PIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_PIN, LOW);
+  delay(1000);
 
   // Définit le nom d'hôte pour la carte ESP32 sur le réseau
   WiFi.setHostname(name_card_elec);
@@ -45,7 +57,7 @@ void setup()
   WiFi.mode(WIFI_STA);
 
   // Démarre la connexion WiFi avec les identifiants donnés
-  WiFi.begin(ssid, password); 
+  WiFi.begin(ssid, password);
   Serial.println();
   Serial.print("SSID : ");
   Serial.println(ssid);
@@ -73,55 +85,48 @@ void loop()
 {
 
   static int compteur = 0;
-    compteur++;
+  compteur++;
 
   float humidite = dht.readTemperature();
   float temperature = dht.readHumidity();
+  Serial.println();
+  Serial.println("----- SERIAL -----");
 
-  Serial.println("Temperature = " + String(humidite)+" °C");
-  Serial.println("Humidite = " + String(temperature)+" %");
-
-
-
+  Serial.println("Temperature = " + String(temperature) + " °C");
+  Serial.println("Humidite = " + String(humidite) + " %");
 
   Serial.print("Compteur : ");
   Serial.println(compteur);
 
-  Serial.print("Humidite : ");
-  Serial.print(humidite, 1);
-  Serial.println(" %");
-
-  Serial.print("Temperature : ");
-  Serial.print(temperature, 1);
-  Serial.println(" °C");
-
   if (WiFi.status() == WL_CONNECTED)
   {
-    HTTPClient http;
+    Serial.println();
+    Serial.println("----- POST -----");
 
-    http.begin(serverName.c_str());
-    http.addHeader(
-      "Content-Type",
-      "application/x-www-form-urlencoded"
-    );
+    HTTPClient httpPOST;
+
+    httpPOST.begin(serverPOST.c_str());
+    httpPOST.addHeader(
+        "Content-Type",
+        "application/x-www-form-urlencoded");
 
     // Toutes les données sont envoyées dans une seule requête
     String httpRequestData =
-      "compteur=" + String(compteur) +
-      "&hum=" + String(humidite, 1) +
-      "&temp=" + String(temperature, 1);
+        "compteur=" + String(compteur) +
+        "&hum=" + String(humidite, 1) +
+        "&temp=" + String(temperature, 1);
 
     Serial.print("Donnees envoyees : ");
     Serial.println(httpRequestData);
 
-    int httpResponseCode = http.POST(httpRequestData);
+    int httpResponseCode = httpPOST.POST(httpRequestData);
 
     if (httpResponseCode > 0)
     {
       Serial.print("Code HTTP : ");
       Serial.println(httpResponseCode);
 
-      String reponse = http.getString();
+      String reponse = httpPOST.getString();
       Serial.print("Reponse Node-RED : ");
       Serial.println(reponse);
     }
@@ -131,11 +136,60 @@ void loop()
       Serial.println(httpResponseCode);
     }
 
-    http.end();
+    httpPOST.end();
+
+    HTTPClient httpGET;
+
+    httpGET.begin(serverGET.c_str());
+
+    Serial.println();
+    Serial.println("----- GET -----");
+
+    int getResponseCode = httpGET.GET();
+
+    if (getResponseCode > 0)
+    {
+      Serial.print("Code HTTP GET : ");
+      Serial.println(getResponseCode);
+
+      // Récupération de la réponse de Node-RED
+      String etatLED = httpGET.getString();
+
+      // // Supprime espaces et retours à la ligne
+      // etatLED.trim();
+
+      Serial.print("Etat LED recu : ");
+      Serial.println(etatLED);
+
+        if (etatLED == "1" )
+      {
+        digitalWrite(LED_PIN, HIGH);
+
+        Serial.println("LED : ON");
+      }
+      else if (etatLED == "0")
+      {
+        digitalWrite(LED_PIN, LOW);
+
+        Serial.println("LED : OFF");
+      }
+      else
+      {
+        Serial.println("Etat LED inconnu !");
+      }
+    }
+    else
+    {
+      Serial.print("Erreur HTTP GET : ");
+      Serial.println(getResponseCode);
+    }
+
+    httpGET.end();
   }
   else
   {
     Serial.println("Wi-Fi deconnecte");
   }
+
   delay(1000);
 }
