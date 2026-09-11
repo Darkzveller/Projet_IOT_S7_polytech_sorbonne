@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include "WiFi.h"
+#include <PubSubClient.h>
+
 #include <HTTPClient.h>
 #include "DHT.h"
 
@@ -27,15 +29,19 @@ const char *name_card_elec = "esp32_test_node_red_v2"; // Nom d'hôte de la cart
 #ifdef MON_TELEPHONE
 const char *ssid = "Me voici";      // SSID du réseau WiFi
 const char *password = "youssef13"; // Mot de passe du réseau WiFi
-String serverPOST = "http://192.168.66.171:1880/donnes";
-String serverGET =  "http://192.168.66.171:1880/button";
+const char *mqtt_server = "192.168.66.171";
 
 #endif
 #ifdef MA_FREEBOX                                // Nom d'hôte de la carte ESP32
 const char *ssid = "Freebox-10E503";             // SSID du réseau WiFi
 const char *password = "h2nn5qzkvfq639rfqv5s2v"; // Mot de passe du réseau WiFi
-String serverPOST = "http://192.168.1.110:1880/donnes";
+const char *mqtt_server = "192.168.66.171";
 #endif
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+void callback(char *topic, byte *message, unsigned int length);
+void reconnect();
 
 void setup()
 {
@@ -79,109 +85,24 @@ void setup()
   // Affiche le succès de la connexion
   Serial.println("");
   Serial.println("Connexion établie !");
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 }
 
 void loop()
 {
 
-  static int compteur = 0;
-  compteur++;
-
-  float humidite = dht.readTemperature();
-  float temperature = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  float humidite = dht.readHumidity();
   Serial.println();
   Serial.println("----- SERIAL -----");
 
   Serial.println("Temperature = " + String(temperature) + " °C");
   Serial.println("Humidite = " + String(humidite) + " %");
 
-  Serial.print("Compteur : ");
-  Serial.println(compteur);
-
   if (WiFi.status() == WL_CONNECTED)
   {
-    Serial.println();
-    Serial.println("----- POST -----");
-
-    HTTPClient httpPOST;
-
-    httpPOST.begin(serverPOST.c_str());
-    httpPOST.addHeader(
-        "Content-Type",
-        "application/x-www-form-urlencoded");
-
-    // Toutes les données sont envoyées dans une seule requête
-    String httpRequestData =
-        "compteur=" + String(compteur) +
-        "&hum=" + String(humidite, 1) +
-        "&temp=" + String(temperature, 1);
-
-    Serial.print("Donnees envoyees : ");
-    Serial.println(httpRequestData);
-
-    int httpResponseCode = httpPOST.POST(httpRequestData);
-
-    if (httpResponseCode > 0)
-    {
-      Serial.print("Code HTTP : ");
-      Serial.println(httpResponseCode);
-
-      String reponse = httpPOST.getString();
-      Serial.print("Reponse Node-RED : ");
-      Serial.println(reponse);
-    }
-    else
-    {
-      Serial.print("Erreur HTTP : ");
-      Serial.println(httpResponseCode);
-    }
-
-    httpPOST.end();
-
-    HTTPClient httpGET;
-
-    httpGET.begin(serverGET.c_str());
-
-    Serial.println();
-    Serial.println("----- GET -----");
-
-    int getResponseCode = httpGET.GET();
-
-    if (getResponseCode > 0)
-    {
-      Serial.print("Code HTTP GET : ");
-      Serial.println(getResponseCode);
-
-      // Récupération de la réponse de Node-RED
-      String etatLED = httpGET.getString();
-
-      Serial.print("Etat LED recu : ");
-      Serial.println(etatLED);
-
-        if (etatLED == "1" )
-      {
-        digitalWrite(LED_PIN, HIGH);
-
-        Serial.println("LED : ON");
-      }
-      else if (etatLED == "0")
-      {
-        digitalWrite(LED_PIN, LOW);
-
-        Serial.println("LED : OFF");
-      }
-      else
-      {
-        Serial.println("Etat LED inconnu !");
-      }
-    }
-    else
-    {
-      Serial.print("Erreur HTTP GET : ");
-      Serial.println(getResponseCode);
-    }
-
-    httpGET.end();
   }
   else
   {
@@ -189,4 +110,62 @@ void loop()
   }
 
   delay(500);
+}
+
+void callback(char *topic, byte *message, unsigned int length)
+{
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+
+  for (int i = 0; i < length; i++)
+  {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  // Feel free to add more if statements to control more GPIOs with MQTT
+
+  // If a message is received on the topic esp32/output, you check if the message is either "on" or "off".
+  // Changes the output state according to the message
+  if (String(topic) == "esp32/output")
+  {
+    Serial.print("Changing output to ");
+    if (messageTemp == "on")
+    {
+      Serial.println("on");
+      digitalWrite(LED_PIN, HIGH);
+    }
+    else if (messageTemp == "off")
+    {
+      Serial.println("off");
+      digitalWrite(LED_PIN, LOW);
+    }
+  }
+}
+
+void reconnect()
+{
+  // Loop until we're reconnected
+  while (!client.connected())
+  {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ESP8266Client"))
+    {
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("esp32/output");
+    }
+    else
+    {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
