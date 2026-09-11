@@ -4,7 +4,7 @@
 /*
 cd /d "C:\Program Files\mosquitto"
 mosquitto.exe -c "C:\Program Files\mosquitto\mosquitto.conf" -v
-t>mosquitto_sub.exe -h localhost -p 1883 -t "esp32/#" -v 
+mosquitto_sub.exe -h localhost -p 1883 -t "esp32/#" -v 
 */
 #include <HTTPClient.h>
 #include "DHT.h"
