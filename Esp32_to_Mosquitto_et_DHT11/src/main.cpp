@@ -1,7 +1,11 @@
 #include <Arduino.h>
 #include "WiFi.h"
 #include <PubSubClient.h>
-
+/*
+cd /d "C:\Program Files\mosquitto"
+mosquitto.exe -c "C:\Program Files\mosquitto\mosquitto.conf" -v
+t>mosquitto_sub.exe -h localhost -p 1883 -t "esp32/#" -v 
+*/
 #include <HTTPClient.h>
 #include "DHT.h"
 
@@ -29,7 +33,7 @@ const char *name_card_elec = "esp32_test_node_red_v2"; // Nom d'hôte de la cart
 #ifdef MON_TELEPHONE
 const char *ssid = "Me voici";      // SSID du réseau WiFi
 const char *password = "youssef13"; // Mot de passe du réseau WiFi
-const char *mqtt_server = "192.168.66.171";
+const char *mqtt_server = "192.168.233.171";
 
 #endif
 #ifdef MA_FREEBOX                                // Nom d'hôte de la carte ESP32
@@ -92,17 +96,42 @@ void setup()
 
 void loop()
 {
-
+  static long lastMsg = 0;
   float temperature = dht.readTemperature();
   float humidite = dht.readHumidity();
-  Serial.println();
-  Serial.println("----- SERIAL -----");
+  // Serial.println();
+  // Serial.println("----- SERIAL -----");
 
-  Serial.println("Temperature = " + String(temperature) + " °C");
-  Serial.println("Humidite = " + String(humidite) + " %");
+  // Serial.println("Temperature = " + String(temperature) + " °C");
+  // Serial.println("Humidite = " + String(humidite) + " %");
 
   if (WiFi.status() == WL_CONNECTED)
   {
+    if (!client.connected())
+    {
+      reconnect();
+    }
+    client.loop();
+
+    long now = millis();
+    if (now - lastMsg > 500)
+    {
+      lastMsg = now;
+
+      // Convert the value to a char array
+      char tempString[8];
+      dtostrf(temperature, 1, 2, tempString);
+      // Serial.print("Temperature: ");
+      // Serial.println(tempString);
+      client.publish("esp32/temperature", tempString);
+
+      // Convert the value to a char array
+      char humString[8];
+      dtostrf(humidite, 1, 2, humString);
+      // Serial.print("Humidity: ");
+      // Serial.println(humString);
+      client.publish("esp32/humidity", humString);
+    }
   }
   else
   {
@@ -133,14 +162,14 @@ void callback(char *topic, byte *message, unsigned int length)
   if (String(topic) == "esp32/output")
   {
     Serial.print("Changing output to ");
-    if (messageTemp == "on")
+    if (messageTemp == "true")
     {
-      Serial.println("on");
+      Serial.println("true");
       digitalWrite(LED_PIN, HIGH);
     }
-    else if (messageTemp == "off")
+    else if (messageTemp == "false")
     {
-      Serial.println("off");
+      Serial.println("false");
       digitalWrite(LED_PIN, LOW);
     }
   }
@@ -153,7 +182,7 @@ void reconnect()
   {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
-    if (client.connect("ESP8266Client"))
+    if (client.connect("ESP32Client_Youssef"))
     {
       Serial.println("connected");
       // Subscribe

@@ -1,2 +1,2 @@
 echo off
-git status && git add . && git commit -m "ajout du projet esp32 pour mosquitto" && git push
+git status && git add . && git commit -m "Projet de tp fini" && git push
